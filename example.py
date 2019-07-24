@@ -3,12 +3,12 @@ from collections import defaultdict
 import datetime
 import requests
 import json
-import pandas as pd
-import numpy as np
+# import pandas as pd
+# import numpy as np
 # from sfi import Data
 
 # 登录之后，百度首页的请求cookies，必填
-COOKIES = ''
+COOKIES = 'BAIDUID=F02913FEA36AA5A6EC4C57F01F9871DA:FG=1; BIDUPSID=F02913FEA36AA5A6EC4C57F01F9871DA; PSTM=1561552580; BDUSS=ZNZURQYXpuUnBDa3VUYnNrUmE2cUFRZHkxVk9WekRmaTVRbXY0a1lCWmRtMHRkSVFBQUFBJCQAAAAAAAAAAAEAAAD2HZUDd2FuZ3lhb2RyZWFtAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAF0OJF1dDiRdR0; BDORZ=B490B5EBF6F3CD402E515D22BCDA1598; BDRCVFR[feWj1Vr5u3D]=I67x6TjHwwYf0; PSINO=3; H_PS_PSSID=1444_21121_29578_18559_29074_29519_28518_29099_29568_28835_29220_26350; delPer=1; Hm_lvt_d101ea4d2a5c67dab98251f0b5de24dc=1562645105,1563604257,1563956836; bdindexid=bpbn6mtnmp1am4183bpdl0ol16; Hm_lpvt_d101ea4d2a5c67dab98251f0b5de24dc=1563974206'
 
 headers = {
     'Host': 'index.baidu.com',
@@ -131,13 +131,13 @@ class BaiduIndex:
 
 
 if __name__ == '__main__':
-    baidu_index = BaiduIndex(keywords=['人民币贬值'], start_date='2011-01-01', end_date='2019-07-06')
-    bz=baidu_index.result['人民币贬值']
-    df=pd.DataFrame(bz['all'])
-    count_row=df.shape[0]
-    for i in range(count_row,10000):
-        df.loc[i]='NA'
-    # Data.addVarStrL('time')
-    # Data.addVarStrL('search')
-    # Data.store('time',None,df["date"])
-    # Data.store('search',None,df["index"])
+    baidu_index = BaiduIndex(keywords=['股票'], start_date='2011-01-01', end_date='2019-07-06')
+    bz=baidu_index.result['股票']
+    # df=pd.DataFrame(bz['all'])
+    # count_row=df.shape[0]
+    # for i in range(count_row,10000):
+    #     df.loc[i]='NA'
+    # # Data.addVarStrL('time')
+    # # Data.addVarStrL('search')
+    # # Data.store('time',None,df["date"])
+    # # Data.store('search',None,df["index"])
