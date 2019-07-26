@@ -151,12 +151,24 @@ class BaiduIndex:
 
 
 class Tag:
-    def __init__(self):
+    """
+    构造所需要的数据
+    """
+    def __init__(self, process_mode, ):
         pass
 
 def main():
     # 设定几个需要获取指数的url并逐个进行数据爬取，最后再进行封装存储成excel文件
-    pass
+    with open('area_data/provinces_code.json', 'r', encoding='utf-8') as f_provinces:
+        provinces = json.load(f_provinces)
+    with open('area_data/citys_code.json', 'r', encoding='utf-8') as f_cities:
+        cities = json.load(f_cities)
+    # 开始不同模式的数据爬取
+    # 首先是全国数据
+    
+
+
+
 
 
 if __name__ == '__main__':

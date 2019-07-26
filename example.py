@@ -132,7 +132,7 @@ class BaiduIndex:
 
 if __name__ == '__main__':
     baidu_index = BaiduIndex(keywords=['股票'], start_date='2011-01-01', end_date='2019-07-06')
-    bz=baidu_index.result['股票']
+    bz = baidu_index.result['股票']
     # df=pd.DataFrame(bz['all'])
     # count_row=df.shape[0]
     # for i in range(count_row,10000):
