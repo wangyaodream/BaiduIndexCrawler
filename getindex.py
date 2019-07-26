@@ -1,4 +1,5 @@
 import requests
+from urllib.parse import urlencode
 from collections import defaultdict
 import datetime
 import requests
@@ -19,6 +20,7 @@ headers = {
 
 }
 
+
 class BaiduIndex:
     def __init__(self, keywords, start_date, end_date, area=0):
         """
@@ -33,10 +35,17 @@ class BaiduIndex:
         self._all_kind = ['all', 'pc', 'wise']
         self._area = area
         self.result = {keyword: defaultdict(list) for keyword in self._keywords}
+        self._tag_url = self.structure_url(self._keywords, start_date, end_date, self._area)
+        self.get_result(self._tag_url)
 
-    # def get_result(self):
-    #     for start_date, end_date in self._time_range_list:
-    #         encrypt_datas, uniqid = self.get_encrypt
+    def get_result(self, tag_url):
+        for start_date, end_date in self._time_range_list:
+            encrypt_datas, uniqid = self.get_encrypt_datas(start_date, end_date, tag_url)
+            key = self.get_key(uniqid)
+            for encrypt_data in encrypt_datas:
+                for kind in self._all_kind:
+                    encrypt_data[kind]['data'] = self.decrypt_func(key, encrypt_data[kind]['data'])
+                self.format_data(encrypt_data)
 
     def get_encrypt_datas(self, start_date, end_date, tag_url):
         """
@@ -53,7 +62,39 @@ class BaiduIndex:
             'area': self._area,
         }
         # 获取页面数据
-        html = self.http_get(url)
+        html = self.http_get(tag_url)
+        datas = json.loads(html)
+        uniqid = datas['data']['uniqid']
+        encrypt_datas = []
+        for single_data in datas['data']['userIndexes']:
+            encrypt_datas.append(single_data)
+        return (encrypt_datas, uniqid)
+
+    def get_key(self, uniqid):
+        tag_url = 'http://index.baidu.com/Interface/api/ptbk?uniqid=%s' % uniqid
+        html = self.http_get(tag_url)
+        datas = json.loads(html)
+        key = datas['data']
+        return key
+
+    def format_data(self, data):
+        keyword = str(data['word'])
+        time_len = len(data['all']['data'])
+        start_date = data['all']['startDate']
+        cur_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+        for i in range(time_len):
+            for kind in self._all_kind:
+                index_datas = data[kind]['data']
+                index_data = index_datas[i] if len(index_datas) != 1 else index_datas[0]
+                formated_data = {
+                    'date': cur_date.strftime('%Y-%m-%d'),
+                    'index': index_data if index_data else '0'
+                }
+                self.result[keyword][kind].append(formated_data)
+            cur_date += datetime.timedelta(days=1)
+
+    def __call__(self, keyword, kind='all'):
+        return self.result[keyword][kind]
 
     @staticmethod
     def http_get(url):
@@ -76,9 +117,9 @@ class BaiduIndex:
             tempdate = startdate + datetime.timedelta(days=300)
             if tempdate > enddate:
                 all_days = (enddate-startdate).days  # 还不知道有神马用
-                date_range_list.append(startdate, enddate)
+                date_range_list.append((startdate, enddate))
                 return date_range_list
-            date_range_list.append(startdate, tempdate)
+            date_range_list.append((startdate, tempdate))
             startdate = tempdate + datetime.timedelta(days=1)
 
     @staticmethod
@@ -96,12 +137,29 @@ class BaiduIndex:
             s.append(n[i[r]])
         return ''.join(s).split(',')
 
+    @staticmethod
+    def structure_url(keyword, startdate, enddate, area):
+        # 这里暂时是一个单独url的测试，后续应该返回的是一个目标url的集合
+        request_args = {
+            'word': ','.join(keyword),
+            'startDate': startdate,
+            'endDate': enddate,
+            'area': area,
+        }
+        tag_url = 'http://index.baidu.com/api/SearchApi/index?' + urlencode(request_args)
+        return tag_url
 
 
+class Tag:
+    def __init__(self):
+        pass
+
+def main():
+    # 设定几个需要获取指数的url并逐个进行数据爬取，最后再进行封装存储成excel文件
+    pass
 
 
 if __name__ == '__main__':
-    key = 'uVvS.HO,D3mhUJM0128%74.-3+95,6'
-    data = 'VMOuVJVH3SOJVUOvUJVUM3uJVOV3SJOMUUJOuMvJVhH3UJVSM3HJVMU3VJVMHUHJV3HUUJOV3hJ3MuUJVhOOuJVMSHvJVUuOuJVUVhOJVVSVvJ3MuVJvhOUJVOSvuJV3v3VJVvS3MJVV3UhJVuUUhJ3HuOJ3u3MJVUM3vJVvVhM'
-    res = BaiduIndex.decrypt_func(key, data)
-    print(res)
+    bi = BaiduIndex('股票', '2019-06-25', '2019-07-24', 189)
+    res = bi.result['股票']
+    print(res['pc'])
