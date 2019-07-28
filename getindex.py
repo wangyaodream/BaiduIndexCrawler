@@ -22,7 +22,7 @@ headers = {
 
 
 class BaiduIndex:
-    def __init__(self, keywords, start_date, end_date, area=0):
+    def __init__(self, tag_url, keywords, start_date, end_date, area=0):
         """
         初始化BaiduIndex对象，赋予一些基本属性
         :param keywords: 关键词
@@ -35,17 +35,21 @@ class BaiduIndex:
         self._all_kind = ['all', 'pc', 'wise']
         self._area = area
         self.result = {keyword: defaultdict(list) for keyword in self._keywords}
-        self._tag_url = self.structure_url(self._keywords, start_date, end_date, self._area)
-        self.get_result(self._tag_url)
+        self.get_result(tag_url)
 
     def get_result(self, tag_url):
         for start_date, end_date in self._time_range_list:
             encrypt_datas, uniqid = self.get_encrypt_datas(start_date, end_date, tag_url)
             key = self.get_key(uniqid)
-            for encrypt_data in encrypt_datas:
-                for kind in self._all_kind:
-                    encrypt_data[kind]['data'] = self.decrypt_func(key, encrypt_data[kind]['data'])
-                self.format_data(encrypt_data)
+            if 'all' in encrypt_datas[0]:
+                for encrypt_data in encrypt_datas:
+                    for kind in self._all_kind:
+                        encrypt_data[kind]['data'] = self.decrypt_func(key, encrypt_data[kind]['data'])
+                    self.format_data(encrypt_data)
+            else:
+                for encrypt_data in encrypt_datas:
+                    encrypt_data['data'] = self.decrypt_func(key, encrypt_data['data'])
+                self.format_data(encrypt_data, specific=False)
 
     def get_encrypt_datas(self, start_date, end_date, tag_url):
         """
@@ -66,8 +70,12 @@ class BaiduIndex:
         datas = json.loads(html)
         uniqid = datas['data']['uniqid']
         encrypt_datas = []
-        for single_data in datas['data']['userIndexes']:
-            encrypt_datas.append(single_data)
+        if 'userIndexes' in datas['data']:
+            for single_data in datas['data']['userIndexes']:
+                encrypt_datas.append(single_data)
+        else:
+            for single_data in datas['data']['index']:
+                encrypt_datas.append(single_data)
         return (encrypt_datas, uniqid)
 
     def get_key(self, uniqid):
@@ -77,20 +85,36 @@ class BaiduIndex:
         key = datas['data']
         return key
 
-    def format_data(self, data):
-        keyword = str(data['word'])
-        time_len = len(data['all']['data'])
-        start_date = data['all']['startDate']
+    def format_data(self, data, specific=True):
+
+        if specific:
+            time_len = len(data['all']['data'])
+            keyword = str(data['word'])
+            start_date = data['all']['startDate']
+        else:
+            time_len = len(data['data'])
+            keyword = str(data['key'])
+            start_date = data['startDate']
+
         cur_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
         for i in range(time_len):
-            for kind in self._all_kind:
-                index_datas = data[kind]['data']
+            if specific:
+                for kind in self._all_kind:
+                    index_datas = data[kind]['data']
+                    index_data = index_datas[i] if len(index_datas) != 1 else index_datas[0]
+                    formated_data = {
+                        'date': cur_date.strftime('%Y-%m-%d'),
+                        'index': index_data if index_data else '0'
+                    }
+                    self.result[keyword][kind].append(formated_data)
+            else:
+                index_datas = data['data']
                 index_data = index_datas[i] if len(index_datas) != 1 else index_datas[0]
                 formated_data = {
                     'date': cur_date.strftime('%Y-%m-%d'),
                     'index': index_data if index_data else '0'
                 }
-                self.result[keyword][kind].append(formated_data)
+                self.result[keyword]['all'].append(formated_data)
             cur_date += datetime.timedelta(days=1)
 
     def __call__(self, keyword, kind='all'):
@@ -137,19 +161,6 @@ class BaiduIndex:
             s.append(n[i[r]])
         return ''.join(s).split(',')
 
-    @staticmethod
-    def structure_url(keyword, startdate, enddate, area):
-        # 这里暂时是一个单独url的测试，后续应该返回的是一个目标url的集合
-        request_args = {
-            'word': ','.join(keyword),
-            'startDate': startdate,
-            'endDate': enddate,
-            'area': area,
-        }
-        tag_url = 'http://index.baidu.com/api/SearchApi/index?' + urlencode(request_args)
-        return tag_url
-
-
 class Tag:
     """
     构造所需要的数据
@@ -157,14 +168,40 @@ class Tag:
     def __init__(self, process_mode, ):
         pass
 
+    @staticmethod
+    def structure_urls(keyword, startdate, enddate, area):
+        # 这里暂时是一个单独url的测试，后续应该返回的是一个目标url的集合
+        request_args = {
+            'word': keyword,
+            'startDate': startdate,
+            'endDate': enddate,
+            'area': area,
+        }
+        tag_urls = dict()
+        # 搜索指数
+        tag_urls['SearchIndex'] = 'http://index.baidu.com/api/SearchApi/index?' + urlencode(request_args)
+        # 资讯指数
+        tag_urls['FeedIndex'] = 'http://index.baidu.com/api/FeedSearchApi/getFeedIndex?' + urlencode(request_args)
+        # 媒体指数
+        tag_urls['NewsIndex'] = 'http://index.baidu.com/api/NewsApi/getNewsIndex?' + urlencode(request_args)
+
+        return tag_urls
+
+
 def main():
     # 设定几个需要获取指数的url并逐个进行数据爬取，最后再进行封装存储成excel文件
     with open('area_data/provinces_code.json', 'r', encoding='utf-8') as f_provinces:
         provinces = json.load(f_provinces)
     with open('area_data/citys_code.json', 'r', encoding='utf-8') as f_cities:
         cities = json.load(f_cities)
-    # 开始不同模式的数据爬取
-    # 首先是全国数据
+    # 只在程序开始执行的时候获取，避免重复读取数据。
+    # 首先是全国数据,全国数据只需要三个指数的url即可完成
+    urls = Tag.structure_urls("股票", '2019-06-25', '2019-07-24', 189)
+    res_data = {}
+    for i in urls:
+        bi = BaiduIndex(urls[i], ['股票'], '2019-06-25', '2019-07-24', 189)
+        res_data[i] = bi.result['股票']
+    print(res_data)
     
 
 
@@ -172,6 +209,7 @@ def main():
 
 
 if __name__ == '__main__':
-    bi = BaiduIndex('股票', '2019-06-25', '2019-07-24', 189)
-    res = bi.result['股票']
-    print(res['pc'])
+    # bi = BaiduIndex('股票', '2019-06-25', '2019-07-24', 189)
+    # res = bi.result['股票']
+    # print(res['pc'])
+    main()
