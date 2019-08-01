@@ -1,9 +1,11 @@
-import requests
 from urllib.parse import urlencode
 from collections import defaultdict
+import time
 import datetime
 import requests
 import json
+
+import datapack as dp
 # import pandas as pd
 
 
@@ -188,20 +190,43 @@ class Tag:
         return tag_urls
 
 
-def main():
+def getNationalData(keyword, startDate, endDate):
+    # 获取全国的数据
+    urls = Tag.structure_urls(keyword, startDate, endDate, 0)
+    result_data = {}
+    for i in urls:
+        bi = BaiduIndex(urls[i], [keyword], startDate, endDate, 0)
+        result_data[i] = dict(bi.result[keyword])
+    return result_data
+
+
+def getProvinceData(keyword, startDate, endDate, provinceMap):
+    result_data = {}
+    for curr_province in provinceMap:
+        # time.sleep(0.1)
+        temp_data = {}
+        province_name = curr_province
+        province_code = provinceMap[curr_province]
+        _urls = Tag.structure_urls(keyword, startDate, endDate, province_code)
+        for i in _urls:
+            bi = BaiduIndex(_urls[i], [keyword], startDate, endDate, province_code)
+            temp_data[i] = dict(bi.result[keyword])
+        result_data[province_name] = temp_data
+    return result_data
+
+def main(keyword, startDate, endDate):
     # 设定几个需要获取指数的url并逐个进行数据爬取，最后再进行封装存储成excel文件
     with open('area_data/provinces_code.json', 'r', encoding='utf-8') as f_provinces:
         provinces = json.load(f_provinces)
     with open('area_data/citys_code.json', 'r', encoding='utf-8') as f_cities:
         cities = json.load(f_cities)
-    # 只在程序开始执行的时候获取，避免重复读取数据。
-    # 首先是全国数据,全国数据只需要三个指数的url即可完成
-    urls = Tag.structure_urls("股票", '2019-06-25', '2019-07-24', 189)
-    res_data = {}
-    for i in urls:
-        bi = BaiduIndex(urls[i], ['股票'], '2019-06-25', '2019-07-24', 189)
-        res_data[i] = bi.result['股票']
-    print(res_data)
+    taget_data = {}
+    national_data = getNationalData(keyword, startDate, endDate)
+    provinces_data = getProvinceData(keyword, startDate, endDate, provinces)
+    with open('/Users/wangyao/Desktop/temp_data/province_data.json', 'w', encoding='utf-8') as f:
+        f.write(json.dumps(provinces_data))
+    print('Done!')
+
     
 
 
@@ -209,7 +234,7 @@ def main():
 
 
 if __name__ == '__main__':
-    # bi = BaiduIndex('股票', '2019-06-25', '2019-07-24', 189)
-    # res = bi.result['股票']
-    # print(res['pc'])
-    main()
+    start_time = time.time()
+    main('股票', '2019-06-30', '2019-08-01')
+    end_time = time.time() - start_time
+    print('耗时 {} s'.format(end_time))
