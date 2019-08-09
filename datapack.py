@@ -1,11 +1,10 @@
 import xlwt
 import datetime
-import json
 
 NAME_MAP = {'SearchIndex': '搜索指数', 'FeedIndex': '资讯指数', 'NewsIndex': '媒体指数'}
 
 class Pack:
-    def __init__(self, tag_data, tag_path, keyword):
+    def __init__(self, tag_data, tag_path, keyword, target):
         """
         初始化pack对象，直接将数据导出成excel
         :param tag_data: 目标数据
@@ -15,16 +14,22 @@ class Pack:
         self._tag_data = tag_data
         self._tag_path = tag_path
         self._keyword = keyword  # keyword用来制作表头的字符串
+        self._target = target
         self.fmt_data()  # 运行存储
 
 
     def fmt_data(self):
         # 存储搜索指数
-        self.searchIndexProcess()
-        # 存储咨询指数
-        self.feedIndexProcess()
-        # 存储媒体指数
-        self.newsIndexProcess()
+        if self._target not in 'SearchIndex FeedIndex NewsIndex'.split():
+            raise Exception('Unreasonably target')
+        if self._target == 'SearchIndex':
+            self.searchIndexProcess()
+        elif self._target == 'FeedIndex':
+            # 存储咨询指数
+            self.feedIndexProcess()
+        else:
+            # 存储媒体指数
+            self.newsIndexProcess()
         
 
     def searchIndexProcess(self):
@@ -80,24 +85,24 @@ class Pack:
             _worksheet.write(0, i, title[i])
 
     @staticmethod
-    def national_sheet(workbook: xlwt.Workbook, titles: list, tag_data, item_name, specific=True):
+    def national_sheet(workbook: xlwt.Workbook, titles: list, tag_data, specific=True):
         worksheet = workbook.add_sheet('全国')
         # 初始化构造title
         Pack.init_sheet(worksheet, titles)
         #填充内容
         fill_row = 1
-        for _ in tag_data[item_name]['all']:
+        for _ in tag_data['all']:
             if specific:
                 temp_data = [
-                    tag_data[item_name]['all'][fill_row - 1]['date'],
-                    tag_data[item_name]['all'][fill_row - 1]['index'],
-                    tag_data[item_name]['pc'][fill_row - 1]['index'],
-                    tag_data[item_name]['wise'][fill_row - 1]['index'],
+                    tag_data['all'][fill_row - 1]['date'],
+                    tag_data['all'][fill_row - 1]['index'],
+                    tag_data['pc'][fill_row - 1]['index'],
+                    tag_data['wise'][fill_row - 1]['index'],
                 ]
             else:
                 temp_data = [
-                    tag_data[item_name]['all'][fill_row - 1]['date'],
-                    tag_data[item_name]['all'][fill_row - 1]['index'],
+                    tag_data['all'][fill_row - 1]['date'],
+                    tag_data['all'][fill_row - 1]['index'],
                 ]
             for j in range(len(temp_data)):
                 worksheet.write(fill_row, j, temp_data[j])
