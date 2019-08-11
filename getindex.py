@@ -11,11 +11,9 @@ import json
 
 import datapack
 
-import datapack as dp
-# import pandas as pd
-
-
-COOKIE = ''
+with open('temp/access_info.json', 'r') as acc_f:
+    access_dict = json.load(acc_f)
+access_count = access_dict['access_count']
 
 headers = {
     'Host': 'index.baidu.com',
@@ -27,6 +25,25 @@ headers = {
     )
 
 }
+
+
+class StatusException(Exception):
+    def __init__(self, e):
+        super().__init__(self)
+        message = {
+            10001: '访问受限',
+            10002: '无该关键词'
+        }
+        self._msg = message[e]
+        # 将访问计数记录
+        global access_count
+        global access_dict
+        access_dict['access_count'] = access_count
+        with open('temp/access_info.json', 'w') as acc_w:
+            acc_w.write(json.dumps(access_dict))
+
+    def __str__(self):
+        return self._msg
 
 
 class MyThread(threading.Thread):
@@ -72,9 +89,9 @@ class BaiduIndex:
                         encrypt_data[kind]['data'] = self.decrypt_func(key, encrypt_data[kind]['data'])
                     self.format_data(encrypt_data)
             else:
-                for encrypt_data in encrypt_datas:
-                    encrypt_data['data'] = self.decrypt_func(key, encrypt_data['data'])
-                self.format_data(encrypt_data, specific=False)
+                for encrypt_data_2 in encrypt_datas:
+                    encrypt_data_2['data'] = self.decrypt_func(key, encrypt_data_2['data'])
+                self.format_data(encrypt_data_2, False)
 
     def get_encrypt_datas(self, start_date, end_date, tag_url):
         """
@@ -93,6 +110,8 @@ class BaiduIndex:
         # 获取页面数据
         html = self.http_get(tag_url, self._cookie)
         datas = json.loads(html)
+        if datas['status'] != 0:
+            raise StatusException(datas['status'])
         uniqid = datas['data']['uniqid']
         encrypt_datas = []
         if 'userIndexes' in datas['data']:
@@ -188,7 +207,8 @@ class BaiduIndex:
 def getNationalData(cookie, keyword, startDate, endDate, targ: Tag):
     # 获取全国的数据
     url = targ.structure_urls(keyword, startDate, endDate, 0)
-    result_data = {}
+    global access_count
+    access_count += 1
     bi = BaiduIndex(cookie, url, [keyword], startDate, endDate, 0)
     result_data = dict(bi.result[keyword])
     return result_data
@@ -196,101 +216,140 @@ def getNationalData(cookie, keyword, startDate, endDate, targ: Tag):
 
 def getProvinceData(cookie, keyword, startDate, endDate, provinceMap, targ: Tag):
     result_data = {}
-    out_thread = []
     thread_list = []
     for curr_province in provinceMap:
         # time.sleep(0.1)
-
-        province_name = curr_province
         province_code = provinceMap[curr_province]
         _url = targ.structure_urls(keyword, startDate, endDate, province_code)
         # 单线程
+        global access_count
+        access_count += 1
         bi = BaiduIndex(cookie, _url, [keyword], startDate, endDate, province_code)
         temp_data = dict(bi.result[keyword])
+        result_data[curr_province] = temp_data
 
-        #     # 多线程
-        #     t = MyThread(BaiduIndex, args=(cookie, _urls[i], [keyword], startDate, endDate, province_code))
-        #     thread_list.append((i, t))
-        #     t.start()
-        # for item_name, t in thread_list:
-        #     t.join()
-        #     res = t.get_result()
-        #     temp_data[item_name] = dict(res.result[keyword])
-        result_data[province_name] = temp_data
+    #     # 多线程
+    #     t = MyThread(BaiduIndex, args=(cookie, _url, [keyword], startDate, endDate, province_code))
+    #     thread_list.append((curr_province, t))
+    #     t.start()
+    # for province, t in thread_list:
+    #     t.join()
+    #     res = t.get_result()
+    #     result_data[province] = dict(res.result[keyword])
+
     return result_data
 
 
 def getCitysData(cookie, keyword, startDate, endDate, citysMap, targ: Tag):
     result_data = {}
     citys_data = {}
+    thread_list = []
     for i in citysMap:
         citys_data.update(citysMap[i])
     for city in citys_data:
-        thread_list = []
+
         city_code = citys_data[city]
         _url = targ.structure_urls(keyword, startDate, endDate, city_code)
         # 单线程
+        global access_count
+        access_count += 1
         bi = BaiduIndex(cookie, _url, [keyword], startDate, endDate, city_code)
         temp_data = dict(bi.result[keyword])
-
-        #     # 多线程
-        #     t = MyThread(BaiduIndex, args=(cookie, _urls[i], [keyword], startDate, endDate, city_code))
-        #     thread_list.append((i, t))
-        #     t.start()
-        # for item_name, t in thread_list:
-        #     t.join()
-        #     res = t.get_result()
-        #     if res:
-        #         temp_data[item_name] = dict(res.result[keyword])
         result_data[city] = temp_data
+    #     # 多线程
+    #     t = MyThread(BaiduIndex, args=(cookie, _url, [keyword], startDate, endDate, city_code))
+    #     thread_list.append((city, t))
+    #     t.start()
+    # for city, t in thread_list:
+    #     t.join()
+    #     res = t.get_result()
+    #     result_data[city] = dict(res.result[keyword])
     return result_data
 
-def main(keyword, startDate, endDate, target, target_path='.'):
+
+def main(keyword, startDate, endDate, target, main_path='.'):
     target_dirs = {
         'SearchIndex': '搜索指数',
-        'FeedIndex': '媒体指数',
-        'NewsIndex': '新闻指数'
+        'FeedIndex': '资讯指数',
+        'NewsIndex': '媒体指数'
     }
+    sub_dir = "{}/{}".format(main_path, target_dirs[target])
     # 创建Tag对象表明要抓取的指数类型
-    tag = Tag('SearchIndex')
+    tag = Tag(target)
     # 设定几个需要获取指数的url并逐个进行数据爬取，最后再进行封装存储成excel文件
     with open('area_data/provinces_code.json', 'r', encoding='utf-8') as f_provinces:
         provinces = json.load(f_provinces)
-    with open('area_data/citys_code.json', 'r', encoding='utf-8') as f_cities:
+    with open('area_data/cities_code_bak.json', 'r', encoding='utf-8') as f_cities:
         cities = json.load(f_cities)
+
     # 获取cookie
     with open('cookies', 'r') as f:
         cookies = []
         for i in f:
             cookies.append(i.replace('\n', ''))
+
     # 应该创建所需要的路径目录
-    if not os.path.exists(target_path):
+    if not os.path.exists(main_path):
         # 创建主目录
-        if target_path != '.':
-            os.mkdir(target_path)
-        sub_dir = target_dirs[target]
-        os.mkdir(target_path + '/{}/'.format(sub_dir))
+        if main_path != '.':
+            os.mkdir(main_path)
+        os.mkdir(sub_dir)
+    else:
+        # 有主目录没有sub目录
+        if not os.path.exists(sub_dir):
+            os.mkdir(sub_dir)
     # 构造一个主集合
-    target_data = dict()
+    target_data = {}
     print('正在获取全国数据...')
-    target_data['National'] = getNationalData(cookies[0],keyword, startDate, endDate, tag)
+    target_data['National'] = getNationalData(cookies[0], keyword, startDate, endDate, tag)
     print('正在获取省份数据...')
     target_data['Province'] = getProvinceData(cookies[0], keyword, startDate, endDate, provinces, tag)
     print('正在获取市级数据...')
     target_data['City'] = getCitysData(cookies[0], keyword, startDate, endDate, cities, tag)
+
+    # 清空缓存
+    if os.path.exists('temp/tempdata.json'):
+        os.remove('temp/tempdata.json')
+    # 写入缓存文件
     with open('temp/tempdata.json', 'w', encoding='utf-8') as fp:
         fp.write(json.dumps(target_data))
     print('开始导出数据...')
-    pack = datapack.Pack(target_data, target_path, keyword, tag._target)
+
+    pack = datapack.Pack(target_data, main_path, keyword, tag._target)
     # 将数据导出成excel文件
     # with open('/Users/wangyao/Desktop/temp_data/test_data.json', 'w', encoding='utf-8') as f:
     #     f.write(json.dumps(target_data['Province']))
+
+    # 将访问计数记录
+    global access_count
+    global access_dict
+    access_dict['access_count'] = access_count
+    with open('temp/access_info.json', 'w') as acc_w:
+        acc_w.write(json.dumps(access_dict))
     print('Done!')
 
 
 if __name__ == '__main__':
     start_time = time.time()
-    # main('上市', '2019-06-30', '2019-08-01', '/Users/wangyao/Desktop/result')
+    # path for mac
+    # main_path = '/Users/wangyao/Desktop/result'
+    # path for windows
+
+    main_path = 'E:/tmp_data/result'
+    main('长安', '2019-07-07', '2019-08-07', 'SearchIndex', 'E:/tmp_data/result')
 
     end_time = time.time() - start_time
     print('耗时 {} s'.format(end_time))
+
+    # # 原始数据测试
+    # key = 'or1D,h%giuK2jWI7-.69%2,+813504'
+    # data = 'u2uoogojD%WgDIK2DgjuDo,gDDDoDgD2,%DgoWuKWgooDW2gjo2uWgoK%jogD%,2ogD22DIgDjKougj,IuWgjuKDIgjoWoogIu2,jgIDWu2gD2jjIgj,%,KgDDW%ugjuu%DgjjW2%gID2%KgIj,oDgjoIWjgD2Do,gDj,j2gDo,IjgDDDW2gjouj,gj2IKWgDjWoKgDoWo,gD%,KugD%IjugDWWKugj2WDogjW,uKgjuuoogj,uIWgDWD2Wgj,WujgjoDujgI,Kj,gIouo,gIjoKIgDWIo,gDW2j2gj,oW%gjoD%2gjIjI%gIDuIDgI%u2IgI22%KgI2uoWgIIK2DgIjD2ugII,DugIj%KugjDIuogjD%,2gjjoI%gjIIDjgj%j2WgIu%,2gIDI,%gj2j2KgjIDKjgjDKo2gjIo,Igj%I2KgID,,jgIDKWogj2%,ugjjWuDgjjKj,gj2ou,gj%%oogIDK2IgI2jIWgjWIj%gjKKj2gjWKIDgjK,uWgj%oDWgIDuIogIj%,ugj%juKgj2%WugjIWjDgjK,jjgjW%IjgIIIDDgI%W,Wgj2Ijjgj2u%DgjIIIDgj2Wo%gj%DWogIujjWgIu%jugj2IoogjI,uugjjI,ugj2u,%gj%%22gIu,IogIDjDIgj%ouugj2j2,gj2jo2gj2oWogj22,DgjWDIDgjW%KWgjIDDKgjoK%DgjjI2IgjooK%gj%juugIoKDDgIDWjDgj%IjKgjIDjugD,WougD2,D%gjD%%%gI,jDKgIou2ogojjW,gjujuKgjuWWKgjDK2Dgj2IWDgI,oDIgID2oKgIuuKWgjWoK,gjKoDjgjKIuKgIu,IWgIuWjugIj%oWgIWooog2,o2ogI,Ij2gjKj2Igj2%o2gI,,2%gIDDoWgjK2K,gjKj%DgjK,2WgjW,KjgjWKjDgIDo%DgIIou%gI,jIDgI,K2,gI,KuDgI,W,ogI,jW,gIo%oIgIj%uIgIuuDKgI,,oKgDK,uogDj%uDgj,%2jgj2%jWgI,uKogj%,WIgj%%W,gj%%IIgjWK,KgID%ougI%j%Dg2,,W2g2Wu%%g2WuDugIW,2,gIIKIKgID%,ogIoK,DgIojougj%%KogjuWu%gju2%%gjojDKgjooK,gjKo2DgIuoDKgjDoIIgjo%%Dgj2WK,gjDWK%gjjK,%gj2KIogj2W%jgDKjjKgDWoj,gDW%KWgj,,K%gjujuIgjjjjIgjWuDjgjooj2gj,K,Dgj,2,KgjD2uIgjI2KKgj%%,ogj%Io%gjoWW2gjoW,2gjujI%gj,W%Wgj,ouIgjIIIIgjWoDDgju2j%gjoo22gj,IuKgDK,22gDWIj%gjIWWugjWIDDgjoIIDgjujjDgj,%K,gD%KD2gjo%2Igj%IoDgIuuIKgjjWoogjD2%%gjj,,ugjIIDDgIoj%WgIDu%KgIDI%KgjI,DIgjojuugDWWKogjooojgjoKoWgj%jDogI,,o,gjD,2ugjjI2%gjj,%Dgjuj,ogjD2KWgj%,2WgjWIougjDDI2gj2uK%gj2KuWgj2IIugDoj%WgDK,,2gDKj%ogjuojWgjID2%gIuWjKgIuuDIgIouIIgIDuoKgj2oW%gjuuo,gjDI%2gjuuu,gDWjj,gj,K,Wgjj2,ogj%KIIgj,o%jgD2oj%gDWIKIgj,j%ogjou%Wgjj2%Wgj2u%uguI2WDgo2D,2goKWuKgDojujgDjuKogD%ID2gj,IDjgD%,IDgD%Wj,gDjI%jgoW22IgD%juKgDWDuogDW2u%guojI2g,2uu,go2KDWgDo%u2gjII2ogj2I%,gjjuIKgoWWojgDuI%ogoKojDgo%oKogDIoj2gjjuIjgj%%I,gDW2%IgjuIIogj,,%ogj,uIKgju22WgjKWIogIu2I%gjooW2gjD,2KgjuoWIgjojWogjDD2ugj%jo%gIu,j2gjou%%gDWIj,gDW2D%gDWuI%gjojKogjWI,DgI,IK%gju22ugjoDKugjo2uIgjDWIWgjIujIgI,2o2gIoDW%gj,ojugj,2,%gju%,jgjojj,gjDKj,gI,2IWgIu,IogDID%DgDj,%jgDj,o%gDKj2ugjoj,KgjjWoKgjKoD2gDW2I2gj,%2ugDKK%ugDWj%%gjujo,gjWu2ugI,uo%gjDj,ogjI%jugjDuKjgjo%j%gjDKu%'
+    # res = BaiduIndex.decrypt_func(key, data)
+    # print(res)
+    # print(len(res))
+
+    # 结果数据测试
+    # tag = Tag('NewsIndex')
+    # with open('temp/tempdata.json', 'r', encoding='utf-8') as f:
+    #     tag_data = json.load(f)
+    # pack = datapack.Pack(tag_data, main_path, '福特', tag._target)
