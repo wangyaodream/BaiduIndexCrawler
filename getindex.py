@@ -63,7 +63,7 @@ class MyThread(threading.Thread):
 
 
 class BaiduIndex:
-    def __init__(self, cookie, tag_url, keywords, start_date, end_date, area=0):
+    def __init__(self, cookie, target, keywords, start_date, end_date, area=0):
         """
         初始化BaiduIndex对象，赋予一些基本属性
         :param keywords: 关键词
@@ -72,16 +72,17 @@ class BaiduIndex:
         :param area: 区域，默认0代表全国（地区代码需要自己总结）
         """
         self._cookie = cookie
-        self._keywords = keywords if isinstance(keywords, list) else keywords.split(',')
+        self._target = target
+        self._keywords = keywords
         self._time_range_list = self.get_time_range_list(start_date, end_date)
         self._all_kind = ['all', 'pc', 'wise']
         self._area = area
-        self.result = {keyword: defaultdict(list) for keyword in self._keywords}
-        self.get_result(tag_url)
+        self.result = {keyword: defaultdict(list) for keyword in [self._keywords]}
+        self.get_result()
 
-    def get_result(self, tag_url):
+    def get_result(self):
         for start_date, end_date in self._time_range_list:
-            encrypt_datas, uniqid = self.get_encrypt_datas(start_date, end_date, tag_url)
+            encrypt_datas, uniqid = self.get_encrypt_datas(start_date, end_date)
             key = self.get_key(uniqid)
             if 'all' in encrypt_datas[0]:
                 for encrypt_data in encrypt_datas:
@@ -93,7 +94,7 @@ class BaiduIndex:
                     encrypt_data_2['data'] = self.decrypt_func(key, encrypt_data_2['data'])
                 self.format_data(encrypt_data_2, False)
 
-    def get_encrypt_datas(self, start_date, end_date, tag_url):
+    def get_encrypt_datas(self, start_date, end_date):
         """
         获取加密的数据
         :param start_date: 格式化后的开始日期
@@ -102,13 +103,16 @@ class BaiduIndex:
         :return: 加密的结果数据
         """
         request_args = {
-            'word': ','.join(self._keywords),
+            'word': self._keywords,
             'startDate': start_date,
             'endDate': end_date,
             'area': self._area,
         }
+        # 通过指定目标构造url
+        tag = Tag(self._target)
+        url = tag.structure_urls(request_args)
         # 获取页面数据
-        html = self.http_get(tag_url, self._cookie)
+        html = self.http_get(url, self._cookie)
         datas = json.loads(html)
         if datas['status'] != 0:
             raise StatusException(datas['status'])
@@ -204,27 +208,25 @@ class BaiduIndex:
         return ''.join(s).split(',')
 
 
-def getNationalData(cookie, keyword, startDate, endDate, targ: Tag):
+def getNationalData(cookie, keyword, startDate, endDate, target):
     # 获取全国的数据
-    url = targ.structure_urls(keyword, startDate, endDate, 0)
     global access_count
     access_count += 1
-    bi = BaiduIndex(cookie, url, [keyword], startDate, endDate, 0)
+    bi = BaiduIndex(cookie, target, keyword, startDate, endDate, 0)
     result_data = dict(bi.result[keyword])
     return result_data
 
 
-def getProvinceData(cookie, keyword, startDate, endDate, provinceMap, targ: Tag):
+def getProvinceData(cookie, keyword, startDate, endDate, provinceMap, target):
     result_data = {}
     thread_list = []
     for curr_province in provinceMap:
         # time.sleep(0.1)
         province_code = provinceMap[curr_province]
-        _url = targ.structure_urls(keyword, startDate, endDate, province_code)
         # 单线程
         global access_count
         access_count += 1
-        bi = BaiduIndex(cookie, _url, [keyword], startDate, endDate, province_code)
+        bi = BaiduIndex(cookie, target, keyword, startDate, endDate, province_code)
         temp_data = dict(bi.result[keyword])
         result_data[curr_province] = temp_data
 
@@ -240,7 +242,7 @@ def getProvinceData(cookie, keyword, startDate, endDate, provinceMap, targ: Tag)
     return result_data
 
 
-def getCitysData(cookie, keyword, startDate, endDate, citysMap, targ: Tag):
+def getCitysData(cookie, keyword, startDate, endDate, citysMap, target):
     result_data = {}
     citys_data = {}
     thread_list = []
@@ -249,11 +251,10 @@ def getCitysData(cookie, keyword, startDate, endDate, citysMap, targ: Tag):
     for city in citys_data:
 
         city_code = citys_data[city]
-        _url = targ.structure_urls(keyword, startDate, endDate, city_code)
         # 单线程
         global access_count
         access_count += 1
-        bi = BaiduIndex(cookie, _url, [keyword], startDate, endDate, city_code)
+        bi = BaiduIndex(cookie, target, keyword, startDate, endDate, city_code)
         temp_data = dict(bi.result[keyword])
         result_data[city] = temp_data
     #     # 多线程
@@ -275,7 +276,6 @@ def main(keyword, startDate, endDate, target, main_path='.'):
     }
     sub_dir = "{}/{}".format(main_path, target_dirs[target])
     # 创建Tag对象表明要抓取的指数类型
-    tag = Tag(target)
     # 设定几个需要获取指数的url并逐个进行数据爬取，最后再进行封装存储成excel文件
     with open('area_data/provinces_code.json', 'r', encoding='utf-8') as f_provinces:
         provinces = json.load(f_provinces)
@@ -301,11 +301,11 @@ def main(keyword, startDate, endDate, target, main_path='.'):
     # 构造一个主集合
     target_data = {}
     print('正在获取全国数据...')
-    target_data['National'] = getNationalData(cookies[0], keyword, startDate, endDate, tag)
+    target_data['National'] = getNationalData(cookies[0], keyword, startDate, endDate, target)
     print('正在获取省份数据...')
-    target_data['Province'] = getProvinceData(cookies[0], keyword, startDate, endDate, provinces, tag)
+    target_data['Province'] = getProvinceData(cookies[0], keyword, startDate, endDate, provinces, target)
     print('正在获取市级数据...')
-    target_data['City'] = getCitysData(cookies[0], keyword, startDate, endDate, cities, tag)
+    target_data['City'] = getCitysData(cookies[0], keyword, startDate, endDate, cities, target)
 
     # 清空缓存
     if os.path.exists('temp/tempdata.json'):
@@ -315,7 +315,7 @@ def main(keyword, startDate, endDate, target, main_path='.'):
         fp.write(json.dumps(target_data))
     print('开始导出数据...')
 
-    pack = datapack.Pack(target_data, main_path, keyword, tag._target)
+    pack = datapack.Pack(target_data, main_path, keyword, target)
     # 将数据导出成excel文件
     # with open('/Users/wangyao/Desktop/temp_data/test_data.json', 'w', encoding='utf-8') as f:
     #     f.write(json.dumps(target_data['Province']))
@@ -330,14 +330,25 @@ def main(keyword, startDate, endDate, target, main_path='.'):
 
 
 if __name__ == '__main__':
+    target_map = {
+        "搜索指数": 'SearchIndex',
+        "资讯指数": "FeedIndex",
+        "媒体指数": "NewsIndex"
+    }
+    keyword = input("请输入关键词：")
+    start_date = input("请输入开始时间(XXXX-XX-XX)：")
+    end_date = input("请输入结束时间(XXXX-XX-XX)：")
+    target = target_map[input("请输入指数类型（搜索指数，资讯指数，媒体指数）:")]
+    tag_path = input('')
+
     start_time = time.time()
-    # path for mac
-    # main_path = '/Users/wangyao/Desktop/result'
-    # path for windows
-
-    main_path = 'E:/tmp_data/result'
-    main('长安', '2019-07-07', '2019-08-07', 'SearchIndex', 'E:/tmp_data/result')
-
+    # # path for mac
+    main_path = '/Users/wangyao/Desktop/result'
+    #
+    # # path for windows
+    # # main_path = 'E:/tmp_data/result'
+    main('长安', '2018-01-01', '2019-01-01', 'SearchIndex', main_path)
+    #
     end_time = time.time() - start_time
     print('耗时 {} s'.format(end_time))
 
@@ -353,3 +364,6 @@ if __name__ == '__main__':
     # with open('temp/tempdata.json', 'r', encoding='utf-8') as f:
     #     tag_data = json.load(f)
     # pack = datapack.Pack(tag_data, main_path, '福特', tag._target)
+
+    # tmp = BaiduIndex.get_time_range_list('2018-06-01', '2019-01-01')
+    # print(tmp)
