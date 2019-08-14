@@ -31,7 +31,7 @@ class StatusException(Exception):
     def __init__(self, e):
         super().__init__(self)
         message = {
-            10001: '访问受限',
+            10001: '该账号访问受限，明天再试',
             10002: '无该关键词'
         }
         self._msg = message[e]
@@ -230,8 +230,8 @@ def getProvinceData(cookie, keyword, startDate, endDate, provinceMap, target):
         temp_data = dict(bi.result[keyword])
         result_data[curr_province] = temp_data
 
-    #     # 多线程
-    #     t = MyThread(BaiduIndex, args=(cookie, _url, [keyword], startDate, endDate, province_code))
+        # 多线程
+    #     t = MyThread(BaiduIndex, args=(cookie, target, keyword, startDate, endDate, province_code))
     #     thread_list.append((curr_province, t))
     #     t.start()
     # for province, t in thread_list:
@@ -257,8 +257,8 @@ def getCitysData(cookie, keyword, startDate, endDate, citysMap, target):
         bi = BaiduIndex(cookie, target, keyword, startDate, endDate, city_code)
         temp_data = dict(bi.result[keyword])
         result_data[city] = temp_data
-    #     # 多线程
-    #     t = MyThread(BaiduIndex, args=(cookie, _url, [keyword], startDate, endDate, city_code))
+        # 多线程
+    #     t = MyThread(BaiduIndex, args=(cookie, target, keyword, startDate, endDate, city_code))
     #     thread_list.append((city, t))
     #     t.start()
     # for city, t in thread_list:
@@ -330,28 +330,35 @@ def main(keyword, startDate, endDate, target, main_path='.'):
 
 
 if __name__ == '__main__':
-    target_map = {
-        "搜索指数": 'SearchIndex',
-        "资讯指数": "FeedIndex",
-        "媒体指数": "NewsIndex"
-    }
-    keyword = input("请输入关键词：")
-    start_date = input("请输入开始时间(XXXX-XX-XX)：")
-    end_date = input("请输入结束时间(XXXX-XX-XX)：")
-    target = target_map[input("请输入指数类型（搜索指数，资讯指数，媒体指数）:")]
-    tag_path = input('')
-
+    # target_map = {
+    #     "搜索指数": 'SearchIndex',
+    #     "资讯指数": "FeedIndex",
+    #     "媒体指数": "NewsIndex"
+    # }
+    # # cmd UI
+    # # keyword = input("请输入关键词: ")
+    # # start_date = input("请输入开始时间(XXXX-XX-XX): ")
+    # # end_date = input("请输入结束时间(XXXX-XX-XX): ")
+    # # target = target_map[input("请输入指数类型（搜索指数，资讯指数，媒体指数）: ")]
+    # # tag_path = input('请输入数据存储路径: ')
+    #
+    ##############################################################################
     start_time = time.time()
     # # path for mac
-    main_path = '/Users/wangyao/Desktop/result'
+    # main_path = '/Users/wangyao/Desktop/result'
     #
     # # path for windows
-    # # main_path = 'E:/tmp_data/result'
-    main('长安', '2018-01-01', '2019-01-01', 'SearchIndex', main_path)
+    main_path = 'E:/tmp_data/result'
+    # main(keyword, start_date, end_date, target, tag_path)
+    try:
+        main('python', '2013-01-01', '2014-01-01', 'SearchIndex', main_path)
+    except StatusException as e:
+        print(e)
     #
     end_time = time.time() - start_time
     print('耗时 {} s'.format(end_time))
 
+    #################################################################################
     # # 原始数据测试
     # key = 'or1D,h%giuK2jWI7-.69%2,+813504'
     # data = 'u2uoogojD%WgDIK2DgjuDo,gDDDoDgD2,%DgoWuKWgooDW2gjo2uWgoK%jogD%,2ogD22DIgDjKougj,IuWgjuKDIgjoWoogIu2,jgIDWu2gD2jjIgj,%,KgDDW%ugjuu%DgjjW2%gID2%KgIj,oDgjoIWjgD2Do,gDj,j2gDo,IjgDDDW2gjouj,gj2IKWgDjWoKgDoWo,gD%,KugD%IjugDWWKugj2WDogjW,uKgjuuoogj,uIWgDWD2Wgj,WujgjoDujgI,Kj,gIouo,gIjoKIgDWIo,gDW2j2gj,oW%gjoD%2gjIjI%gIDuIDgI%u2IgI22%KgI2uoWgIIK2DgIjD2ugII,DugIj%KugjDIuogjD%,2gjjoI%gjIIDjgj%j2WgIu%,2gIDI,%gj2j2KgjIDKjgjDKo2gjIo,Igj%I2KgID,,jgIDKWogj2%,ugjjWuDgjjKj,gj2ou,gj%%oogIDK2IgI2jIWgjWIj%gjKKj2gjWKIDgjK,uWgj%oDWgIDuIogIj%,ugj%juKgj2%WugjIWjDgjK,jjgjW%IjgIIIDDgI%W,Wgj2Ijjgj2u%DgjIIIDgj2Wo%gj%DWogIujjWgIu%jugj2IoogjI,uugjjI,ugj2u,%gj%%22gIu,IogIDjDIgj%ouugj2j2,gj2jo2gj2oWogj22,DgjWDIDgjW%KWgjIDDKgjoK%DgjjI2IgjooK%gj%juugIoKDDgIDWjDgj%IjKgjIDjugD,WougD2,D%gjD%%%gI,jDKgIou2ogojjW,gjujuKgjuWWKgjDK2Dgj2IWDgI,oDIgID2oKgIuuKWgjWoK,gjKoDjgjKIuKgIu,IWgIuWjugIj%oWgIWooog2,o2ogI,Ij2gjKj2Igj2%o2gI,,2%gIDDoWgjK2K,gjKj%DgjK,2WgjW,KjgjWKjDgIDo%DgIIou%gI,jIDgI,K2,gI,KuDgI,W,ogI,jW,gIo%oIgIj%uIgIuuDKgI,,oKgDK,uogDj%uDgj,%2jgj2%jWgI,uKogj%,WIgj%%W,gj%%IIgjWK,KgID%ougI%j%Dg2,,W2g2Wu%%g2WuDugIW,2,gIIKIKgID%,ogIoK,DgIojougj%%KogjuWu%gju2%%gjojDKgjooK,gjKo2DgIuoDKgjDoIIgjo%%Dgj2WK,gjDWK%gjjK,%gj2KIogj2W%jgDKjjKgDWoj,gDW%KWgj,,K%gjujuIgjjjjIgjWuDjgjooj2gj,K,Dgj,2,KgjD2uIgjI2KKgj%%,ogj%Io%gjoWW2gjoW,2gjujI%gj,W%Wgj,ouIgjIIIIgjWoDDgju2j%gjoo22gj,IuKgDK,22gDWIj%gjIWWugjWIDDgjoIIDgjujjDgj,%K,gD%KD2gjo%2Igj%IoDgIuuIKgjjWoogjD2%%gjj,,ugjIIDDgIoj%WgIDu%KgIDI%KgjI,DIgjojuugDWWKogjooojgjoKoWgj%jDogI,,o,gjD,2ugjjI2%gjj,%Dgjuj,ogjD2KWgj%,2WgjWIougjDDI2gj2uK%gj2KuWgj2IIugDoj%WgDK,,2gDKj%ogjuojWgjID2%gIuWjKgIuuDIgIouIIgIDuoKgj2oW%gjuuo,gjDI%2gjuuu,gDWjj,gj,K,Wgjj2,ogj%KIIgj,o%jgD2oj%gDWIKIgj,j%ogjou%Wgjj2%Wgj2u%uguI2WDgo2D,2goKWuKgDojujgDjuKogD%ID2gj,IDjgD%,IDgD%Wj,gDjI%jgoW22IgD%juKgDWDuogDW2u%guojI2g,2uu,go2KDWgDo%u2gjII2ogj2I%,gjjuIKgoWWojgDuI%ogoKojDgo%oKogDIoj2gjjuIjgj%%I,gDW2%IgjuIIogj,,%ogj,uIKgju22WgjKWIogIu2I%gjooW2gjD,2KgjuoWIgjojWogjDD2ugj%jo%gIu,j2gjou%%gDWIj,gDW2D%gDWuI%gjojKogjWI,DgI,IK%gju22ugjoDKugjo2uIgjDWIWgjIujIgI,2o2gIoDW%gj,ojugj,2,%gju%,jgjojj,gjDKj,gI,2IWgIu,IogDID%DgDj,%jgDj,o%gDKj2ugjoj,KgjjWoKgjKoD2gDW2I2gj,%2ugDKK%ugDWj%%gjujo,gjWu2ugI,uo%gjDj,ogjI%jugjDuKjgjo%j%gjDKu%'
@@ -365,5 +372,7 @@ if __name__ == '__main__':
     #     tag_data = json.load(f)
     # pack = datapack.Pack(tag_data, main_path, '福特', tag._target)
 
-    # tmp = BaiduIndex.get_time_range_list('2018-06-01', '2019-01-01')
+    # 时间轴测试
+    # tmp = BaiduIndex.get_time_range_list('2016-01-01', '2019-01-01')
+    # print(len(tmp))
     # print(tmp)
