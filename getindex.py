@@ -142,7 +142,7 @@ class BaiduIndex:
         else:
             time_len = len(data['data'])
             keyword = str(data['key'])
-            start_date = data['startDate']
+            start_date = data['startDate'][:10]
 
         cur_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
         for i in range(time_len):
@@ -345,13 +345,13 @@ if __name__ == '__main__':
     ##############################################################################
     start_time = time.time()
     # # path for mac
-    # main_path = '/Users/wangyao/Desktop/result'
+    main_path = '/Users/wangyao/Desktop/result'
     #
     # # path for windows
-    main_path = 'E:/tmp_data/result'
+    # main_path = 'E:/tmp_data/result'
     # main(keyword, start_date, end_date, target, tag_path)
     try:
-        main('python', '2013-01-01', '2014-01-01', 'SearchIndex', main_path)
+        main('python', '2018-09-01', '2019-07-01', 'FeedIndex', main_path)
     except StatusException as e:
         print(e)
     #
