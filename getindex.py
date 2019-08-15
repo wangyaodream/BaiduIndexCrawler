@@ -330,33 +330,45 @@ def main(keyword, startDate, endDate, target, main_path='.'):
 
 
 if __name__ == '__main__':
-    # target_map = {
-    #     "搜索指数": 'SearchIndex',
-    #     "资讯指数": "FeedIndex",
-    #     "媒体指数": "NewsIndex"
-    # }
-    # # cmd UI
-    # # keyword = input("请输入关键词: ")
-    # # start_date = input("请输入开始时间(XXXX-XX-XX): ")
-    # # end_date = input("请输入结束时间(XXXX-XX-XX): ")
-    # # target = target_map[input("请输入指数类型（搜索指数，资讯指数，媒体指数）: ")]
-    # # tag_path = input('请输入数据存储路径: ')
-    #
+    target_map = {
+        "1": 'SearchIndex',
+        "2": "FeedIndex",
+        "3": "NewsIndex"
+    }
+    default_value = {
+        'target': 'SearchIndex',
+        'tag_path': 'temp/out',
+        'start_date': (datetime.datetime.now() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'),
+        'end_date': datetime.datetime.now().strftime('%Y-%m-%d')
+    }
+    # cmd UI
+    keyword = input("请输入关键词:\n ")
+    start_date = input("请输入开始日期(XXXX-XX-XX) 回车默认:{}:\n ".format(default_value['start_date']))
+    end_date = input("请输入结束日期(XXXX-XX-XX): 回车默认:{}:\n ".format(default_value['end_date']))
+    target = input("请选择指数类型(回车默认'搜索指数')\n1.搜索指数\n2.资讯指数\n3.媒体指数\n")
+    tag_path = input('请输入数据存储路径(如:c:/zjg, 默认当前目录temp/out):\n')
+    # 检查参数
+    target = target_map[target] if target != '' else default_value['target']
+    tag_path = tag_path if tag_path != '' else default_value['tag_path']
+    start_date = start_date if start_date != '' else default_value['start_date']
+    end_date = end_date if end_date != '' else default_value['end_date']
+
+    main(keyword, start_date, end_date, target, tag_path)
     ##############################################################################
-    start_time = time.time()
-    # # path for mac
-    main_path = '/Users/wangyao/Desktop/result'
-    #
-    # # path for windows
-    # main_path = 'E:/tmp_data/result'
-    # main(keyword, start_date, end_date, target, tag_path)
-    try:
-        main('python', '2018-09-01', '2019-07-01', 'FeedIndex', main_path)
-    except StatusException as e:
-        print(e)
-    #
-    end_time = time.time() - start_time
-    print('耗时 {} s'.format(end_time))
+    # start_time = time.time()
+    # # # path for mac
+    # main_path = '/Users/wangyao/Desktop/result'
+    # #
+    # # # path for windows
+    # # main_path = 'E:/tmp_data/result'
+    # # main(keyword, start_date, end_date, target, tag_path)
+    # try:
+    #     main('python', '2018-09-01', '2019-07-01', 'FeedIndex', main_path)
+    # except StatusException as e:
+    #     print(e)
+    # #
+    # end_time = time.time() - start_time
+    # print('耗时 {} s'.format(end_time))
 
     #################################################################################
     # # 原始数据测试
